@@ -553,7 +553,7 @@ func (s *Server) GenerateHandler(c *gin.Context) {
 		}
 	}
 
-	ch := make(chan any)
+	ch := make(chan any, 1)
 	go func() {
 		// TODO (jmorganca): avoid building the response twice both here and below
 		var sb strings.Builder
@@ -951,7 +951,7 @@ func (s *Server) PullHandler(c *gin.Context) {
 		return
 	}
 
-	ch := make(chan any)
+	ch := make(chan any, 1)
 	go func() {
 		defer close(ch)
 		fn := func(r api.ProgressResponse) {
@@ -1000,7 +1000,7 @@ func (s *Server) PushHandler(c *gin.Context) {
 		return
 	}
 
-	ch := make(chan any)
+	ch := make(chan any, 1)
 	go func() {
 		defer close(ch)
 		fn := func(r api.ProgressResponse) {
@@ -1039,7 +1039,7 @@ func (s *Server) PushHandler(c *gin.Context) {
 // is.
 func getExistingName(n model.Name) (model.Name, error) {
 	var zero model.Name
-	existing, err := manifest.Manifests(true)
+	existing, err := manifest.GetGlobalCache().Get(true)
 	if err != nil {
 		return zero, err
 	}
@@ -1666,6 +1666,15 @@ func (s *Server) GenerateRoutes(rc *ollama.Registry) (http.Handler, error) {
 
 	r := gin.Default()
 	r.HandleMethodNotAllowed = true
+	
+	// Add request size limit middleware (512MB max to prevent DoS attacks)
+	r.Use(func(c *gin.Context) {
+		if c.Request.Body != nil {
+			c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 512*1024*1024)
+		}
+		c.Next()
+	})
+	
 	r.Use(
 		cors.New(corsConfig),
 		allowedHostsMiddleware(s.addr),
@@ -1756,7 +1765,7 @@ func Serve(ln net.Listener) error {
 	}
 
 	if !envconfig.NoPrune() {
-		if _, err := manifest.Manifests(false); err != nil {
+		if _, err := manifest.GetGlobalCache().Get(false); err != nil {
 			slog.Warn("corrupt manifests detected, skipping prune operation.  Re-pull or delete to clear", "error", err)
 		} else {
 			// clean up unused layers and manifests
@@ -2389,7 +2398,7 @@ func (s *Server) ChatHandler(c *gin.Context) {
 		structuredOutputsState_Applying
 	)
 
-	ch := make(chan any)
+	ch := make(chan any, 1)
 	go func() {
 		defer close(ch)
 

@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/ollama/ollama/types/model"
 )
@@ -156,11 +157,13 @@ func WriteManifest(name model.Name, config Layer, layers []Layer) error {
 		return err
 	}
 
-	f, err := os.Create(p)
+	// Use atomic write pattern: write to temp file, then rename
+	tmpf, err := os.CreateTemp(filepath.Dir(p), ".tmp-manifest-*")
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	tmpPath := tmpf.Name()
+	defer os.Remove(tmpPath) // Clean up on error
 
 	m := Manifest{
 		SchemaVersion: 2,
@@ -169,7 +172,17 @@ func WriteManifest(name model.Name, config Layer, layers []Layer) error {
 		Layers:        layers,
 	}
 
-	return json.NewEncoder(f).Encode(m)
+	if err := json.NewEncoder(tmpf).Encode(m); err != nil {
+		tmpf.Close()
+		return err
+	}
+
+	if err := tmpf.Close(); err != nil {
+		return err
+	}
+
+	// Atomic rename (as atomic as possible on Windows)
+	return os.Rename(tmpPath, p)
 }
 
 func Manifests(continueOnError bool) (map[model.Name]*Manifest, error) {
@@ -206,6 +219,9 @@ func manifestsFromDisk(continueOnError bool) (map[model.Name]*Manifest, error) {
 				slog.Warn("bad filepath", "path", match, "error", err)
 				continue
 			}
+
+			// Normalize Windows backslashes to forward slashes for parsing
+			rel = strings.ReplaceAll(rel, "\\", "/")
 
 			n := model.ParseNameFromFilepath(rel)
 			if !n.IsValid() {

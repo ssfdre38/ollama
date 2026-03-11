@@ -49,9 +49,11 @@ type blobDownload struct {
 
 	context.CancelFunc
 
-	done       chan struct{}
-	err        error
-	references atomic.Int32
+	done         chan struct{}
+	err          error
+	references   atomic.Int32
+	completedAt  time.Time
+	completedMu  sync.Mutex
 }
 
 type blobDownloadPart struct {
@@ -80,6 +82,34 @@ func (p *blobDownloadPart) MarshalJSON() ([]byte, error) {
 		Size:      p.Size,
 		Completed: p.Completed.Load(),
 	})
+}
+
+// cleanupCompletedDownloads removes downloads that have been completed for more than 10 minutes
+func cleanupCompletedDownloads(ctx context.Context) {
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			now := time.Now()
+			blobDownloadManager.Range(func(key, value any) bool {
+				download := value.(*blobDownload)
+				download.completedMu.Lock()
+				completed := download.completedAt
+				download.completedMu.Unlock()
+
+				// If download completed more than 10 minutes ago, remove it
+				if !completed.IsZero() && now.Sub(completed) > 10*time.Minute {
+					blobDownloadManager.Delete(key)
+					slog.Debug("cleaned up completed download", "digest", key)
+				}
+				return true
+			})
+		case <-ctx.Done():
+			return
+		}
+	}
 }
 
 func (p *blobDownloadPart) UnmarshalJSON(b []byte) error {
@@ -214,7 +244,13 @@ func newBackoff(maxBackoff time.Duration) func(ctx context.Context) error {
 }
 
 func (b *blobDownload) run(ctx context.Context, requestURL *url.URL, opts *registryOptions) error {
-	defer blobDownloadManager.Delete(b.Digest)
+	defer func() {
+		// Mark completion time before deleting (for cleanup tracking)
+		b.completedMu.Lock()
+		b.completedAt = time.Now()
+		b.completedMu.Unlock()
+		// Don't delete immediately - let cleanup goroutine handle it after TTL
+	}()
 	ctx, b.CancelFunc = context.WithCancel(ctx)
 
 	file, err := os.OpenFile(b.Name+"-partial", os.O_CREATE|os.O_RDWR, 0o644)

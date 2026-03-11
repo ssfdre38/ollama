@@ -70,6 +70,17 @@ func (s *Server) CreateHandler(c *gin.Context) {
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": errFilePath.Error()})
 			return
 		}
+		
+		// Additional Windows security: validate absolute path after join to prevent traversal
+		manifestDir, err := manifest.Path()
+		if err == nil {
+			absPath := filepath.Join(manifestDir, v)
+			if !filepath.IsAbs(absPath) || !strings.HasPrefix(filepath.Clean(absPath), filepath.Clean(manifestDir)) {
+				c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid file path: potential directory traversal"})
+				return
+			}
+		}
+		
 		if digest == "" {
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": manifest.ErrInvalidDigestFormat.Error()})
 			return
@@ -95,7 +106,7 @@ func (s *Server) CreateHandler(c *gin.Context) {
 		return
 	}
 
-	ch := make(chan any)
+	ch := make(chan any, 1)
 	go func() {
 		defer close(ch)
 		fn := func(resp api.ProgressResponse) {

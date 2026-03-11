@@ -1,6 +1,7 @@
 package manifest
 
 import (
+	"log/slog"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -48,12 +49,20 @@ func (c *ManifestCache) Get(continueOnError bool) (map[model.Name]*Manifest, err
 
 	// Refresh from filesystem
 	manifests, err := loadManifestsFromDisk(continueOnError)
+	
+	// Always update lastSync timestamp to prevent cascading refresh attempts
+	c.lastSync = time.Now()
+	
 	if err != nil {
+		// On error, serve stale cache if available (better than failing completely)
+		if c.manifests != nil {
+			slog.Warn("failed to refresh manifest cache, serving stale data", "error", err)
+			return c.manifests, nil
+		}
 		return nil, err
 	}
 
 	c.manifests = manifests
-	c.lastSync = time.Now()
 	return manifests, nil
 }
 

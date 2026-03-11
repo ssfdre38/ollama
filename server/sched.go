@@ -331,7 +331,17 @@ func (s *Scheduler) processCompleted(ctx context.Context) {
 						runner.expireTimer.Stop()
 						runner.expireTimer = nil
 					}
-					s.expiredCh <- runner
+					select {
+
+					case s.expiredCh <- runner:
+
+					slog.Debug("sent runner to expired channel", "runner", runner)
+
+					case <-time.After(100 * time.Millisecond):
+
+					slog.Warn("expired channel full, could not expire runner immediately", "runner", runner)
+
+					}
 				} else if runner.expireTimer == nil {
 					slog.Debug("runner with non-zero duration has gone idle, adding timer", "runner", runner, "duration", runner.sessionDuration)
 					runner.expireTimer = time.AfterFunc(runner.sessionDuration, func() {
@@ -342,7 +352,17 @@ func (s *Scheduler) processCompleted(ctx context.Context) {
 							runner.expireTimer.Stop()
 							runner.expireTimer = nil
 						}
-						s.expiredCh <- runner
+						select {
+
+						case s.expiredCh <- runner:
+
+						slog.Debug("sent runner to expired channel from timer", "runner", runner)
+
+						case <-time.After(100 * time.Millisecond):
+
+						slog.Warn("expired channel full, could not expire runner from timer", "runner", runner)
+
+						}
 					})
 					runner.expiresAt = time.Now().Add(runner.sessionDuration)
 				} else {
@@ -362,7 +382,12 @@ func (s *Scheduler) processCompleted(ctx context.Context) {
 					// We can't unload yet, but want to as soon as the current request completes
 					// So queue up another expired event
 					time.Sleep(10 * time.Millisecond)
-					s.expiredCh <- runner
+					select {
+case s.expiredCh <- runner:
+slog.Debug("re-queued expired runner", "runner", runner)
+case <-time.After(100 * time.Millisecond):
+slog.Warn("could not re-queue expired runner, channel full", "runner", runner)
+}
 				}(runner)
 				runner.refMu.Unlock()
 				continue

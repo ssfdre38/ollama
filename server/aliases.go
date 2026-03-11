@@ -395,7 +395,7 @@ func displayAliasName(n model.Name) string {
 }
 
 func localModelExists(name model.Name) (bool, error) {
-	manifests, err := manifest.Manifests(true)
+	manifests, err := manifest.GetGlobalCache().Get(true)
 	if err != nil {
 		return false, err
 	}

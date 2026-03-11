@@ -412,8 +412,8 @@ func CopyModel(src, dst model.Name) error {
 }
 
 func deleteUnusedLayers(deleteMap map[string]struct{}) error {
-	// Ignore corrupt manifests to avoid blocking deletion of layers that are freshly orphaned
-	manifests, err := manifest.Manifests(true)
+	// Use cached manifests to ensure consistency with concurrent operations
+	manifests, err := manifest.GetGlobalCache().Get(true)
 	if err != nil {
 		return err
 	}
@@ -521,6 +521,7 @@ func PushModel(ctx context.Context, name string, regOpts *registryOptions, fn fu
 			return err
 		}
 		fn(api.ProgressResponse{Status: "success"})
+		manifest.InvalidateGlobalCache()
 		return nil
 	}
 
@@ -550,6 +551,7 @@ func PushModel(ctx context.Context, name string, regOpts *registryOptions, fn fu
 
 	fn(api.ProgressResponse{Status: "success"})
 
+	manifest.InvalidateGlobalCache()
 	return nil
 }
 
@@ -751,7 +753,25 @@ func pullWithTransfer(ctx context.Context, n model.Name, layers []manifest.Layer
 		return err
 	}
 
-	if err := os.WriteFile(fp, manifestJSON, 0o644); err != nil {
+	// Use atomic write pattern: write to temp file, then rename
+	tmpf, err := os.CreateTemp(filepath.Dir(fp), ".tmp-manifest-*")
+	if err != nil {
+		return err
+	}
+	tmpPath := tmpf.Name()
+	defer os.Remove(tmpPath) // Clean up on error
+
+	if _, err := tmpf.Write(manifestJSON); err != nil {
+		tmpf.Close()
+		return err
+	}
+
+	if err := tmpf.Close(); err != nil {
+		return err
+	}
+
+	// Atomic rename
+	if err := os.Rename(tmpPath, fp); err != nil {
 		return err
 	}
 
