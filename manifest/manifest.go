@@ -173,6 +173,12 @@ func WriteManifest(name model.Name, config Layer, layers []Layer) error {
 }
 
 func Manifests(continueOnError bool) (map[model.Name]*Manifest, error) {
+	return manifestsFromDisk(continueOnError)
+}
+
+// manifestsFromDisk is the actual implementation that scans the filesystem.
+// The public Manifests() function is now just a wrapper.
+func manifestsFromDisk(continueOnError bool) (map[model.Name]*Manifest, error) {
 	manifests, err := Path()
 	if err != nil {
 		return nil, err

@@ -1110,6 +1110,10 @@ func (s *Server) DeleteHandler(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	// Invalidate manifest cache after successful deletion
+	manifest.InvalidateGlobalCache()
+	slog.Debug("manifest cache invalidated after delete", "model", n.DisplayShortest())
 }
 
 func (s *Server) ShowHandler(c *gin.Context) {
@@ -1388,7 +1392,8 @@ func getModelData(digest string, verbose bool) (ggml.KV, ggml.Tensors, error) {
 }
 
 func (s *Server) ListHandler(c *gin.Context) {
-	ms, err := manifest.Manifests(true)
+	// Use global cached manifests instead of scanning filesystem every time
+	ms, err := manifest.GetGlobalCache().Get(true)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -1770,7 +1775,9 @@ func Serve(ln net.Listener) error {
 		}
 	}
 
-	s := &Server{addr: ln.Addr()}
+	s := &Server{
+		addr: ln.Addr(),
+	}
 
 	var rc *ollama.Registry
 	if useClient2 {

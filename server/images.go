@@ -751,7 +751,13 @@ func pullWithTransfer(ctx context.Context, n model.Name, layers []manifest.Layer
 		return err
 	}
 
-	return os.WriteFile(fp, manifestJSON, 0o644)
+	if err := os.WriteFile(fp, manifestJSON, 0o644); err != nil {
+		return err
+	}
+
+	// Invalidate manifest cache after successful pull
+	manifest.InvalidateGlobalCache()
+	return nil
 }
 
 // pushWithTransfer uses the simplified x/transfer package for uploading blobs and manifest.
