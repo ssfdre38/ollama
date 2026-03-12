@@ -180,7 +180,9 @@ func ParseNameBare(s string) Name {
 //
 // { host } "/" { namespace } "/" { model } "/" { tag }
 func ParseNameFromFilepath(s string) (n Name) {
-	parts := strings.Split(s, string(filepath.Separator))
+	// Always split on forward slash, not platform separator
+	// (manifest.go normalizes Windows paths to forward slashes)
+	parts := strings.Split(s, "/")
 	if len(parts) != 4 {
 		return Name{}
 	}
