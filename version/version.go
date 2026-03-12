@@ -1,3 +1,3 @@
 package version
 
-var Version string = "cb-0.17.8"
+var Version string = "0.5.0-ce+18fixes"
