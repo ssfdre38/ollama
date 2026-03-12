@@ -108,6 +108,7 @@ func (s *Server) CreateHandler(c *gin.Context) {
 
 	ch := make(chan any, 1)
 	go func() {
+		defer recoverPanic()
 		defer close(ch)
 		fn := func(resp api.ProgressResponse) {
 			ch <- resp

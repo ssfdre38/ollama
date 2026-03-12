@@ -144,10 +144,12 @@ func (s *Scheduler) GetRunner(c context.Context, m *Model, opts api.Options, ses
 func (s *Scheduler) Run(ctx context.Context) {
 	slog.Debug("starting llm scheduler")
 	go func() {
+		defer recoverPanic()
 		s.processPending(ctx)
 	}()
 
 	go func() {
+		defer recoverPanic()
 		s.processCompleted(ctx)
 	}()
 }
@@ -452,6 +454,7 @@ func (pending *LlmRequest) useLoadedRunner(runner *runnerRef, finished chan *Llm
 	}
 	pending.successCh <- runner
 	go func() {
+		defer recoverPanic()
 		<-pending.ctx.Done()
 		slog.Debug("context for request finished", "runner", runner)
 		finished <- pending
@@ -591,6 +594,7 @@ iGPUScan:
 	s.loadedMu.Unlock()
 
 	go func() {
+		defer recoverPanic()
 		defer runner.refMu.Unlock()
 		if err = llama.WaitUntilRunning(req.ctx); err != nil {
 			slog.Error("error loading llama server", "error", err)
@@ -606,6 +610,7 @@ iGPUScan:
 		runner.refCount++
 		runner.loading = false
 		go func() {
+			defer recoverPanic()
 			<-req.ctx.Done()
 			slog.Debug("context for request finished")
 			s.finishedReqCh <- req
@@ -821,6 +826,7 @@ func (s *Scheduler) waitForVRAMRecovery(runner *runnerRef, runners []ml.Filtered
 	freeMemoryNow := freeMemoryBefore
 
 	go func() {
+		defer recoverPanic()
 		// typical convergence is 0.5-1.5s - If it takes too long to discover and converge, let the scheduler estimate VRAM usage
 		ctx, cancel := context.WithTimeout(context.Background(), s.waitForRecovery)
 		defer cancel()

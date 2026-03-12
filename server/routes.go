@@ -20,6 +20,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"slices"
 	"strings"
 	"sync"
@@ -65,6 +66,13 @@ const (
 	cloudErrWebSearchUnavailable          = "web search is unavailable"
 	cloudErrWebFetchUnavailable           = "web fetch is unavailable"
 )
+
+// recoverPanic is a helper to recover from panics in goroutines and log them
+func recoverPanic() {
+	if r := recover(); r != nil {
+		slog.Error("panic recovered in goroutine", "panic", r, "stack", string(debug.Stack()))
+	}
+}
 
 func writeModelRefParseError(c *gin.Context, err error, fallbackStatus int, fallbackMessage string) {
 	switch {
@@ -563,6 +571,7 @@ func (s *Server) GenerateHandler(c *gin.Context) {
 
 	ch := make(chan any, 1)
 	go func() {
+		defer recoverPanic()
 		// TODO (jmorganca): avoid building the response twice both here and below
 		var sb strings.Builder
 		defer close(ch)
@@ -961,6 +970,7 @@ func (s *Server) PullHandler(c *gin.Context) {
 
 	ch := make(chan any, 1)
 	go func() {
+		defer recoverPanic()
 		defer close(ch)
 		fn := func(r api.ProgressResponse) {
 			ch <- r
@@ -1010,6 +1020,7 @@ func (s *Server) PushHandler(c *gin.Context) {
 
 	ch := make(chan any, 1)
 	go func() {
+		defer recoverPanic()
 		defer close(ch)
 		fn := func(r api.ProgressResponse) {
 			ch <- r
@@ -1408,6 +1419,7 @@ func (s *Server) ListHandler(c *gin.Context) {
 	}
 
 	models := []api.ListModelResponse{}
+	var failedModels []string
 	for n, m := range ms {
 		var cf model.ConfigV2
 
@@ -1415,12 +1427,14 @@ func (s *Server) ListHandler(c *gin.Context) {
 			f, err := m.Config.Open()
 			if err != nil {
 				slog.Warn("bad manifest filepath", "name", n, "error", err)
+				failedModels = append(failedModels, n.String())
 				continue
 			}
 			defer f.Close()
 
 			if err := json.NewDecoder(f).Decode(&cf); err != nil {
 				slog.Warn("bad manifest config", "name", n, "error", err)
+				failedModels = append(failedModels, n.String())
 				continue
 			}
 		}
@@ -1448,6 +1462,12 @@ func (s *Server) ListHandler(c *gin.Context) {
 		// most recently modified first
 		return cmp.Compare(j.ModifiedAt.Unix(), i.ModifiedAt.Unix())
 	})
+
+	// Add warning header if there were failed models
+	if len(failedModels) > 0 {
+		c.Header("X-Ollama-Failed-Models", fmt.Sprintf("%d models failed to load", len(failedModels)))
+		slog.Warn("some models failed to load", "count", len(failedModels), "models", failedModels)
+	}
 
 	c.JSON(http.StatusOK, api.ListResponse{Models: models})
 }
@@ -2414,6 +2434,7 @@ func (s *Server) ChatHandler(c *gin.Context) {
 
 	ch := make(chan any, 1)
 	go func() {
+		defer recoverPanic()
 		defer close(ch)
 
 		structuredOutputsState := structuredOutputsState_None
@@ -2468,7 +2489,7 @@ func (s *Server) ChatHandler(c *gin.Context) {
 				}
 
 				if builtinParser != nil {
-					slog.Log(context.TODO(), logutil.LevelTrace, "builtin parser input", "parser", m.Config.Parser, "content", r.Content)
+					slog.Log(ctx, logutil.LevelTrace, "builtin parser input", "parser", m.Config.Parser, "content", r.Content)
 
 					content, thinking, toolCalls, err := builtinParser.Add(r.Content, r.Done)
 					if err != nil {
@@ -2492,10 +2513,10 @@ func (s *Server) ChatHandler(c *gin.Context) {
 					}
 
 					if res.Message.Content != "" || res.Message.Thinking != "" || len(res.Message.ToolCalls) > 0 || r.Done || len(res.Logprobs) > 0 {
-						slog.Log(context.TODO(), logutil.LevelTrace, "builtin parser output", "parser", m.Config.Parser, "content", content, "thinking", thinking, "toolCalls", toolCalls, "done", r.Done)
+						slog.Log(ctx, logutil.LevelTrace, "builtin parser output", "parser", m.Config.Parser, "content", content, "thinking", thinking, "toolCalls", toolCalls, "done", r.Done)
 						ch <- res
 					} else {
-						slog.Log(context.TODO(), logutil.LevelTrace, "builtin parser empty output", "parser", m.Config.Parser)
+						slog.Log(ctx, logutil.LevelTrace, "builtin parser empty output", "parser", m.Config.Parser)
 					}
 					return
 				}
