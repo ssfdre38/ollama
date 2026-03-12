@@ -414,8 +414,16 @@ func (s *Server) GenerateHandler(c *gin.Context) {
 		}
 	}
 
-	r, m, opts, err := s.scheduleRunner(c.Request.Context(), name.String(), caps, req.Options, req.KeepAlive)
-	if errors.Is(err, errCapabilityCompletion) {
+	// Add timeout for model loading operations to prevent slow clients from holding resources
+	// Use a generous timeout (5 minutes) since model loading can be slow
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Minute)
+	defer cancel()
+	
+	r, m, opts, err := s.scheduleRunner(ctx, name.String(), caps, req.Options, req.KeepAlive)
+	if errors.Is(err, context.DeadlineExceeded) {
+		c.JSON(http.StatusGatewayTimeout, gin.H{"error": "model loading timeout exceeded"})
+		return
+	} else if errors.Is(err, errCapabilityCompletion) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("%q does not support generate", req.Model)})
 		return
 	} else if err != nil {
@@ -1822,16 +1830,14 @@ func Serve(ln net.Listener) error {
 		Handler: nil,
 	}
 
-	// listen for a ctrl+c and stop any loaded llm
-	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		<-signals
+	// Setup graceful shutdown handler (supports both Windows service and interactive modes)
+	setupShutdownHandler(ctx, func() {
+		slog.Info("initiating graceful shutdown")
 		srvr.Close()
 		schedDone()
 		sched.unloadAllRunners()
 		done()
-	}()
+	})
 
 	s.sched.Run(schedCtx)
 
@@ -2301,8 +2307,16 @@ func (s *Server) ChatHandler(c *gin.Context) {
 		}
 	}
 
-	r, m, opts, err := s.scheduleRunner(c.Request.Context(), name.String(), caps, req.Options, req.KeepAlive)
-	if errors.Is(err, errCapabilityCompletion) {
+	// Add timeout for model loading operations to prevent slow clients from holding resources
+	// Use a generous timeout (5 minutes) since model loading can be slow
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Minute)
+	defer cancel()
+	
+	r, m, opts, err := s.scheduleRunner(ctx, name.String(), caps, req.Options, req.KeepAlive)
+	if errors.Is(err, context.DeadlineExceeded) {
+		c.JSON(http.StatusGatewayTimeout, gin.H{"error": "model loading timeout exceeded"})
+		return
+	} else if errors.Is(err, errCapabilityCompletion) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("%q does not support chat", req.Model)})
 		return
 	} else if err != nil {

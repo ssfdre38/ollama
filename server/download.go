@@ -537,8 +537,8 @@ func downloadBlob(ctx context.Context, opts downloadOpts) (cacheHit bool, _ erro
 			return false, err
 		}
 
-		//nolint:contextcheck
-		go download.Run(context.Background(), requestURL, opts.regOpts)
+		// Use request context so downloads cancel when request is canceled
+		go download.Run(ctx, requestURL, opts.regOpts)
 	}
 
 	return false, download.Wait(ctx, opts.fn)
