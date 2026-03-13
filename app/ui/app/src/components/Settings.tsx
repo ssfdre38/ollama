@@ -6,6 +6,7 @@ import { Field, Label, Description } from "@/components/ui/fieldset";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
+import { getErrorMessage } from "@/utils/errorHandling";
 import {
   WifiIcon,
   FolderIcon,
@@ -94,11 +95,8 @@ export default function Settings() {
       setTimeout(() => setShowSaved(false), 1500);
     },
     onError: (error) => {
-      // Show error message to user
-      const errorMessage = error instanceof Error ? error.message : 'Failed to update settings';
+      const errorMessage = getErrorMessage(error);
       console.error('Settings update failed:', errorMessage);
-      // You could also set state here to show error in UI
-      // For now, using browser alert (you may want to add a toast/notification system)
       alert(`Failed to save settings: ${errorMessage}`);
     },
   });
@@ -380,7 +378,7 @@ export default function Settings() {
                     {user?.avatarurl && (
                       <img
                         src={user.avatarurl}
-                        alt={user?.name}
+                        alt={user?.name || "User avatar"}
                         className="h-10 w-10 rounded-full bg-neutral-200 dark:bg-neutral-700 flex-shrink-0"
                         onError={(e) => {
                           const target = e.target as HTMLImageElement;

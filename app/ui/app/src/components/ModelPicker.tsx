@@ -182,7 +182,7 @@ export const ModelPicker = forwardRef<
         <div className="flex items-center gap-2">
           <span>
             {isDisabled
-              ? "Loading..."
+              ? <span className="flex items-center gap-2"><span className="inline-block w-3 h-3 border-2 border-neutral-400 border-t-transparent rounded-full animate-spin" />Loading...</span>
               : selectedModel?.model || "Select a model"}
           </span>
         </div>

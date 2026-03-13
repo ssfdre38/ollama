@@ -4,6 +4,7 @@ import { FileUpload } from "./FileUpload";
 import { DisplayUpgrade } from "./DisplayUpgrade";
 import { DisplayStale } from "./DisplayStale";
 import { DisplayLogin } from "./DisplayLogin";
+import { ChatMessageSkeleton } from "./LoadingSkeleton";
 import {
   useChat,
   useSendMessage,
@@ -86,7 +87,7 @@ export default function Chat({ chatId }: { chatId: string }) {
   );
 
   const allMessages = chatQuery?.data?.chat?.messages ?? [];
-  // TODO(parthsareen): will need to consolidate when used with more tools with state
+  // Note: browser_state will need consolidation when adding more tools with state
   const browserToolResult = chatQuery?.data?.chat?.browser_state;
   const chatError = chatErrorQuery.data;
 
@@ -308,6 +309,8 @@ export default function Chat({ chatId }: { chatId: string }) {
       )}
     </FileUpload>
   ) : (
-    <div>Loading...</div>
+    <div className="flex items-center justify-center h-full">
+      <ChatMessageSkeleton />
+    </div>
   );
 }

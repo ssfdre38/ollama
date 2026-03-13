@@ -7,6 +7,7 @@ import { Link } from "@/components/ui/link";
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { ChatsResponse } from "@/gotypes";
 import { CogIcon } from "@heroicons/react/24/outline";
+import { ChatListSkeleton } from "@/components/LoadingSkeleton";
 
 // there's a hidden debug feature to copy a chat's data to the clipboard by
 // holding shift and clicking this many times within this many seconds
@@ -243,7 +244,7 @@ export function ChatSidebar({ currentChatId }: ChatSidebarProps) {
     return (
       <nav className="flex min-h-0 flex-col">
         <div className="flex flex-1 flex-col p-4">
-          <div className="p-4">Loading...</div>
+          <ChatListSkeleton />
         </div>
       </nav>
     );

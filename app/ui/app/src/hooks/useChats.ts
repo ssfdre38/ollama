@@ -349,9 +349,8 @@ export const useSendMessage = (chatId: string) => {
           continue;
         }
 
-        // download events don't count as loaded
-        // TODO(jmorganca): loading should potentially be an event instead of
-        // reducing it this way
+        // Download events don't count as loaded - consider refactoring to use
+        // explicit loading event instead of boolean reduction
         if (
           event.eventName !== "download" &&
           !loadingChats.has(currentChatId)
@@ -649,9 +648,8 @@ export const useSendMessage = (chatId: string) => {
             break;
           }
           case "done":
-            // TODO(drifkin): update the chat with the thinking time for cases
-            // where there is thinking content, but no other content (which
-            // should be very rare)
+            // Note: Consider updating chat with thinking time for rare cases
+            // where there is thinking content but no other content
             setStreamingChatIds((prev: Set<string>) => {
               const newSet = new Set(prev);
               newSet.delete(currentChatId);
