@@ -9,12 +9,12 @@ export function parseVRAM(vramString: string): number | null {
   if (!vramString) return null;
 
   const match = vramString.match(/^(\d+(?:\.\d+)?)\s*(GiB|GB|MiB|MB)$/i);
-  if (!match) return null;
+  if (!match || !match[1] || !match[2]) return null;
 
   const value = parseFloat(match[1]);
-  const unit = match[2].toLowerCase();
+  const unit = match[2].toLowerCase() as keyof typeof GIB_FACTOR;
 
-  return value * GIB_FACTOR[unit];
+  return value * (GIB_FACTOR[unit] ?? 1);
 }
 
 export function getTotalVRAM(inferenceComputes: { vram: string }[]): number {

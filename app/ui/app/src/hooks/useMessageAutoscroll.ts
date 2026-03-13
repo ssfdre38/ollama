@@ -39,7 +39,7 @@ export const useMessageAutoscroll = ({
   // Find the last user message index from React state
   const getLastUserMessageIndex = useCallback(() => {
     for (let i = messages.length - 1; i >= 0; i--) {
-      if (messages[i].role === "user") {
+      if (messages[i]?.role === "user") {
         return i;
       }
     }

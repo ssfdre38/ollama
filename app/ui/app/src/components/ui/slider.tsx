@@ -37,7 +37,7 @@ const Slider = React.forwardRef<HTMLDivElement, SliderProps>(
       let closestIndex = Math.round(relativeX / segmentWidth);
       closestIndex = Math.max(0, Math.min(closestIndex, options.length - 1));
 
-      return options[closestIndex].value;
+      return options[closestIndex]?.value ?? options[0]?.value ?? 0;
     };
 
     const handleMouseDown = (e: React.MouseEvent) => {

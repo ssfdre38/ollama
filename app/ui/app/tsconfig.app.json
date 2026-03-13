@@ -24,6 +24,8 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
     "paths": {
       "@/gotypes": ["codegen/gotypes.gen.ts"],
       "@/*": ["src/*"]

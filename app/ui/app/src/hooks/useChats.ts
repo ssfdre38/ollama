@@ -606,23 +606,25 @@ export const useSendMessage = (chatId: string) => {
 
               queryClient.invalidateQueries({ queryKey: ["models"] });
 
-              // Fetch fresh capabilities for the downloaded model
-              getModelCapabilities(selectedModel.model)
-                .then((capabilities) => {
-                  queryClient.setQueryData(
-                    ["modelCapabilities", selectedModel.model],
-                    capabilities,
-                  );
-                })
-                .catch((error) => {
-                  console.error(
-                    "Failed to fetch capabilities after download:",
-                    error,
-                  );
-                  queryClient.invalidateQueries({
-                    queryKey: ["modelCapabilities", selectedModel.model],
+              // Wait 2-3 seconds for model to be ready before fetching capabilities
+              setTimeout(() => {
+                getModelCapabilities(selectedModel.model)
+                  .then((capabilities) => {
+                    queryClient.setQueryData(
+                      ["modelCapabilities", selectedModel.model],
+                      capabilities,
+                    );
+                  })
+                  .catch((error) => {
+                    console.error(
+                      "Failed to fetch capabilities after download:",
+                      error,
+                    );
+                    queryClient.invalidateQueries({
+                      queryKey: ["modelCapabilities", selectedModel.model],
+                    });
                   });
-                });
+              }, 2500); // 2.5s delay to let model initialize
             }
             break;
           }

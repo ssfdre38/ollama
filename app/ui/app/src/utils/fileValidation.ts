@@ -139,6 +139,8 @@ export async function processFiles(
 
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
+    if (!file) continue; // Skip undefined entries
+    
     const validation = validateFile(file, options);
 
     if (!validation.valid) {

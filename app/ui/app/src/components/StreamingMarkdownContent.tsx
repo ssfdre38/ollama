@@ -2,14 +2,15 @@ import React from "react";
 import { Streamdown, defaultRemarkPlugins } from "streamdown";
 import remarkCitationParser from "@/utils/remarkCitationParser";
 import CopyButton from "./CopyButton";
-import type { BundledLanguage } from "shiki";
+import type { BundledLanguage, ThemedToken } from "shiki";
+import type { BrowserStateData } from "@/gotypes";
 import { highlighter } from "@/lib/highlighter";
 
 interface StreamingMarkdownContentProps {
   content: string;
-  isStreaming?: boolean;
-  size?: "sm" | "md" | "lg";
-  browserToolResult?: any; // TODO: proper type
+  isStreaming?: boolean | undefined;
+  size?: "sm" | "md" | "lg" | undefined;
+  browserToolResult?: BrowserStateData | undefined;
 }
 
 // Helper to extract text from React nodes
@@ -79,9 +80,9 @@ const CodeBlock = React.memo(
         <pre className="dark:hidden m-0 bg-neutral-100 text-sm overflow-x-auto p-4">
           <code className="font-mono text-sm">
             {tokens?.light
-              ? tokens.light.map((line: any, i: number) => (
+              ? tokens.light.map((line: ThemedToken[], i: number) => (
                   <React.Fragment key={i}>
-                    {line.map((token: any, j: number) => (
+                    {line.map((token: ThemedToken, j: number) => (
                       <span
                         key={j}
                         style={{
@@ -101,9 +102,9 @@ const CodeBlock = React.memo(
         <pre className="hidden dark:block m-0 bg-neutral-800 text-sm overflow-x-auto p-4">
           <code className="font-mono text-sm">
             {tokens?.dark
-              ? tokens.dark.map((line: any, i: number) => (
+              ? tokens.dark.map((line: ThemedToken[], i: number) => (
                   <React.Fragment key={i}>
-                    {line.map((token: any, j: number) => (
+                    {line.map((token: ThemedToken, j: number) => (
                       <span
                         key={j}
                         style={{
@@ -132,7 +133,7 @@ const StreamingMarkdownContent: React.FC<StreamingMarkdownContentProps> =
         defaultRemarkPlugins.gfm,
         defaultRemarkPlugins.math,
         remarkCitationParser,
-      ];
+      ].filter((plugin): plugin is NonNullable<typeof plugin> => plugin !== undefined);
     }, []);
 
     return (
@@ -307,7 +308,7 @@ class StreamingMarkdownErrorBoundary extends React.Component<
     this.state = { hasError: false };
   }
 
-  componentDidUpdate(prevProps: StreamingMarkdownErrorBoundaryProps) {
+  override componentDidUpdate(prevProps: StreamingMarkdownErrorBoundaryProps) {
     if (
       prevProps.isStreaming !== this.props.isStreaming ||
       prevProps.content !== this.props.content
@@ -320,7 +321,7 @@ class StreamingMarkdownErrorBoundary extends React.Component<
     return { hasError: true };
   }
 
-  componentDidCatch(error: Error, info: { componentStack: string }) {
+  override componentDidCatch(error: Error, info: { componentStack: string }) {
     console.error(
       "StreamingMarkdownContent: caught rendering error",
       error,
@@ -328,7 +329,7 @@ class StreamingMarkdownErrorBoundary extends React.Component<
     );
   }
 
-  render() {
+  override render() {
     if (this.state.hasError) {
       // TODO(drifkin): render this more nicely so it's not so jarring. For
       // example, probably want to render newlines, etc. But let's not get too

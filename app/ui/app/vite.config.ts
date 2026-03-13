@@ -28,29 +28,11 @@ export default defineConfig(() => ({
     postcss: {
       plugins: [
         postcssPresetEnv({
-          stage: 1, // Include more experimental features that Safari 14 needs
-          browsers: ["Safari >= 14"],
-          // autoprefixer: false,
+          stage: 2, // Reduced from stage 1 - only reasonably stable features
+          browsers: ["defaults", "not IE 11"], // Modern browsers, removed Safari 14 targeting
           features: {
-            "custom-properties": true, // Let TailwindCSS handle this
             "nesting-rules": true,
-            "logical-properties-and-values": true, // Polyfill logical properties
-            "media-query-ranges": true, // Modern media query syntax
-            "color-function": true, // CSS color functions
-            "double-position-gradients": true,
-            "gap-properties": true, // This is key for flexbox gap!
-            "place-properties": true,
-            "overflow-property": true,
-            "focus-visible-pseudo-class": true, // Focus-visible support
-            "focus-within-pseudo-class": true, // Focus-within support
-            "any-link-pseudo-class": true, // :any-link pseudo-class
-            "not-pseudo-class": true, // Enhanced :not() support
-            "dir-pseudo-class": true, // :dir() pseudo-class
-            "all-property": true, // CSS 'all' property
-            "image-set-function": true, // image-set() function
-            "hwb-function": true, // hwb() color function
-            "lab-function": true, // lab() color function
-            "oklab-function": true, // oklab() color function
+            "custom-properties": false, // Let TailwindCSS handle this
           },
         }),
       ],

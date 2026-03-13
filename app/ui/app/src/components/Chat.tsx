@@ -185,10 +185,12 @@ export default function Chat({ chatId }: { chatId: string }) {
   };
 
   const handleEditMessage = (content: string, index: number) => {
+    const msg = messages[index];
+    if (!msg) return;
     setEditingMessage({
       content,
       index,
-      originalMessage: messages[index],
+      originalMessage: msg,
     });
   };
 

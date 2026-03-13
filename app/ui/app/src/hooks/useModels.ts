@@ -11,8 +11,21 @@ export function useModels(searchQuery = "") {
     queryKey: ["models", searchQuery],
     queryFn: () => getModels(searchQuery),
     gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
-    retry: 3, // Changed: Reduced from 10 to 3 retries (faster failure feedback)
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000), // Changed: 1s, 2s, 4s (instead of 100ms start)
+    retry: (failureCount, error) => {
+      // Don't retry on 4xx client errors (except 429 rate limit)
+      if (error instanceof Error && error.message.includes('4')) {
+        const match = error.message.match(/(\d{3})/);
+        if (match?.[1]) {
+          const status = parseInt(match[1], 10);
+          if (status >= 400 && status < 500 && status !== 429) {
+            return false; // Don't retry client errors
+          }
+        }
+      }
+      // Retry up to 3 times for 5xx server errors and network errors
+      return failureCount < 3;
+    },
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000), // 1s, 2s, 4s
     refetchOnWindowFocus: true,
     refetchInterval: 30 * 1000, // Refetch every 30 seconds to keep models updated
     refetchIntervalInBackground: true,

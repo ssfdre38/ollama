@@ -284,8 +284,9 @@ export const ModelList = forwardRef(function ModelList(
           break;
         case "Enter":
           event.preventDefault();
-          if (highlightedIndex >= 0 && highlightedIndex < models.length) {
-            onModelSelect(models[highlightedIndex]);
+          const selectedModel = models[highlightedIndex];
+          if (highlightedIndex >= 0 && highlightedIndex < models.length && selectedModel) {
+            onModelSelect(selectedModel);
           }
           break;
       }

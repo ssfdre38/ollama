@@ -1,4 +1,4 @@
-import { Message as MessageType, ToolCall, File } from "@/gotypes";
+import { Message as MessageType, ToolCall, File, BrowserStateData } from "@/gotypes";
 import Thinking from "./Thinking";
 import StreamingMarkdownContent from "./StreamingMarkdownContent";
 import { ImageThumbnail } from "./ImageThumbnail";
@@ -21,9 +21,8 @@ const Message = React.memo(
     messageIndex?: number;
     isStreaming: boolean;
     isFaded?: boolean;
-    // TODO(drifkin): this type isn't right
-    browserToolResult?: BrowserToolResult;
-    lastToolQuery?: string;
+    browserToolResult?: BrowserStateData | undefined;
+    lastToolQuery?: string | undefined;
   }) => {
     if (message.role === "user") {
       return (
@@ -60,10 +59,8 @@ const Message = React.memo(
 
 export default Message;
 
-// TODO(drifkin): fill in more (or generate from go types)
-type BrowserToolResult = {
-  page_stack: string[];
-};
+// Alias for BrowserStateData for backward compatibility
+type BrowserToolResult = BrowserStateData;
 
 type BrowserToolContent = {
   cursor: number;
@@ -97,23 +94,23 @@ function processBrowserToolContent(content: string): BrowserToolContent {
   // - url: search_results_Query
 
   // use a regex to extract the cursor, title and URL, all in one shot. It's okay if the page title has parens in it, the very last parens should be the URL
-  const firstLineMatch = firstLine.match(/^\[(\d+)\]\s+(.+)\(([^)]+)\)$/);
+  const firstLineMatch = firstLine?.match(/^\[(\d+)\]\s+(.+)\(([^)]+)\)$/);
 
-  const cursor = firstLineMatch ? parseInt(firstLineMatch[1], 10) : 0;
-  const title = firstLineMatch ? firstLineMatch[2].trim() : "";
-  const url = firstLineMatch ? firstLineMatch[3] : "";
+  const cursor = firstLineMatch?.[1] ? parseInt(firstLineMatch[1], 10) : 0;
+  const title = firstLineMatch?.[2] ? firstLineMatch[2].trim() : "";
+  const url = firstLineMatch?.[3] ?? "";
 
   // Parse the viewing lines info from the second line
   // Example: **viewing lines [0 - 134] of 167**
   const viewingLineMatch = lines[1]?.match(
     /\*\*viewing lines \[(\d+) - (\d+)\] of (\d+)\*\*/,
   );
-  const startingLine = viewingLineMatch ? parseInt(viewingLineMatch[1], 10) : 0;
-  let totalLines = viewingLineMatch ? parseInt(viewingLineMatch[3], 10) : 0;
+  const startingLine = viewingLineMatch?.[1] ? parseInt(viewingLineMatch[1], 10) : 0;
+  let totalLines = viewingLineMatch?.[3] ? parseInt(viewingLineMatch[3], 10) : 0;
 
   // TEMP(drifkin): waiting for a fix from parth, for now making it so we make
   // sure the total lines is at least as much as the ending line number + 1
-  const endingLine = viewingLineMatch ? parseInt(viewingLineMatch[2], 10) : 0;
+  const endingLine = viewingLineMatch?.[2] ? parseInt(viewingLineMatch[2], 10) : 0;
   totalLines = Math.max(totalLines, endingLine + 1);
 
   // Extract the actual content lines (skip first 2 lines and empty line 3)

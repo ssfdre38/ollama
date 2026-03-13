@@ -359,7 +359,7 @@ function ChatForm({
         direction === "next"
           ? (index + 1) % elements.length
           : (index - 1 + elements.length) % elements.length;
-      elements[nextIndex].focus();
+      elements[nextIndex]?.focus();
     },
     [],
   );
@@ -644,7 +644,9 @@ function ChatForm({
             if (result.dataURL) {
               // Convert dataURL back to File object
               const base64Data = result.dataURL.split(",")[1];
-              const mimeType = result.dataURL.split(";")[0].split(":")[1];
+              const parts = result.dataURL.split(";")[0]?.split(":");
+              const mimeType = parts?.[1] ?? "image/png";
+              if (!base64Data) return null;
               const binaryString = atob(base64Data);
               const bytes = new Uint8Array(binaryString.length);
               for (let i = 0; i < binaryString.length; i++) {
