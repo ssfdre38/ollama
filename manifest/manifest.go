@@ -182,7 +182,15 @@ func WriteManifest(name model.Name, config Layer, layers []Layer) error {
 	}
 
 	// Atomic rename (as atomic as possible on Windows)
-	return os.Rename(tmpPath, p)
+	if err := os.Rename(tmpPath, p); err != nil {
+		return err
+	}
+	
+	// Invalidate the global cache so `ollama list` picks up the new model immediately
+	slog.Info("WriteManifest completed, invalidating cache", "model", name)
+	InvalidateGlobalCache()
+	slog.Info("Cache invalidated", "version", GetGlobalCache().Version())
+	return nil
 }
 
 func Manifests(continueOnError bool) (map[model.Name]*Manifest, error) {

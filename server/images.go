@@ -660,6 +660,9 @@ func PullModel(ctx context.Context, name string, regOpts *registryOptions, fn fu
 		return err
 	}
 
+	// Invalidate manifest cache so the new model appears in /api/tags immediately
+	manifest.InvalidateGlobalCache()
+
 	if !envconfig.NoPrune() && len(deleteMap) > 0 {
 		fn(api.ProgressResponse{Status: "removing unused layers"})
 		if err := deleteUnusedLayers(deleteMap); err != nil {

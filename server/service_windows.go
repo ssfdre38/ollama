@@ -9,7 +9,6 @@ import (
 	"os/signal"
 	"syscall"
 
-	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/svc"
 )
 

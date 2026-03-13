@@ -19,13 +19,11 @@ import (
 	"net/netip"
 	"net/url"
 	"os"
-	"os/signal"
 	"runtime/debug"
 	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
-	"syscall"
 	"time"
 
 	"github.com/gin-contrib/cors"
