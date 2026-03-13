@@ -11,9 +11,8 @@ export function useModels(searchQuery = "") {
     queryKey: ["models", searchQuery],
     queryFn: () => getModels(searchQuery),
     gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
-    retry: 10,
-    // exponential backoff, starting at 100ms and capping at 5s
-    retryDelay: (attemptIndex) => Math.min(100 * 2 ** attemptIndex, 5000),
+    retry: 3, // Changed: Reduced from 10 to 3 retries (faster failure feedback)
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000), // Changed: 1s, 2s, 4s (instead of 100ms start)
     refetchOnWindowFocus: true,
     refetchInterval: 30 * 1000, // Refetch every 30 seconds to keep models updated
     refetchIntervalInBackground: true,

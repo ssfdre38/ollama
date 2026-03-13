@@ -5,7 +5,8 @@ export function useCloudStatus() {
   const cloudQuery = useQuery<CloudStatusResponse | null>({
     queryKey: ["cloudStatus"],
     queryFn: getCloudStatus,
-    retry: false,
+    retry: 3, // Changed: Retry 3 times instead of giving up immediately
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000), // Exponential backoff: 1s, 2s, 4s, max 10s
     staleTime: 60 * 1000,
   });
 

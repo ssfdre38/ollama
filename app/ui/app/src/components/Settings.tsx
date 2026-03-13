@@ -93,6 +93,14 @@ export default function Settings() {
       setShowSaved(true);
       setTimeout(() => setShowSaved(false), 1500);
     },
+    onError: (error) => {
+      // Show error message to user
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update settings';
+      console.error('Settings update failed:', errorMessage);
+      // You could also set state here to show error in UI
+      // For now, using browser alert (you may want to add a toast/notification system)
+      alert(`Failed to save settings: ${errorMessage}`);
+    },
   });
 
   const updateCloudMutation = useMutation({

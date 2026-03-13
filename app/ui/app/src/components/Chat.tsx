@@ -28,11 +28,13 @@ import { useNavigate } from "@tanstack/react-router";
 import { useSelectedModel } from "@/hooks/useSelectedModel";
 import { useUser } from "@/hooks/useUser";
 import { useHasVisionCapability } from "@/hooks/useModelCapabilities";
+import { useStreamingContext } from "@/contexts/StreamingContext";
 import { Message } from "@/gotypes";
 
 export default function Chat({ chatId }: { chatId: string }) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const { abortControllers } = useStreamingContext();
   const chatQuery = useChat(chatId === "new" ? "" : chatId);
   const chatErrorQuery = useChatError(chatId === "new" ? "" : chatId);
   const { selectedModel } = useSelectedModel(chatId);
@@ -99,6 +101,17 @@ export default function Chat({ chatId }: { chatId: string }) {
   useEffect(() => {
     setEditingMessage(null);
   }, [chatId]);
+
+  // Cleanup: Abort streaming when component unmounts
+  useEffect(() => {
+    return () => {
+      // Abort any ongoing streaming for this chat when unmounting
+      const controller = abortControllers.get(chatId);
+      if (controller) {
+        controller.abort();
+      }
+    };
+  }, [chatId, abortControllers]);
 
   const sendMessageMutation = useSendMessage(chatId);
 

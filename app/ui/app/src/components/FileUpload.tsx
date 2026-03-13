@@ -32,6 +32,11 @@ export function FileUpload({
   allowedExtensions,
 }: FileUploadProps) {
   const [isDragging, setIsDragging] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{
+    current: number;
+    total: number;
+    fileName: string;
+  } | null>(null);
   // Counter to track drag enter/leave events across all child elements
   // Prevents flickering when dragging over child elements within the component
   const dragCounter = useRef(0);
@@ -105,14 +110,28 @@ export function FileUpload({
         allFiles.push(...Array.from(dataTransfer.files));
       }
 
-      // Use shared validation utility
-      const { validFiles, errors } = await processFilesUtil(allFiles, {
-        maxFileSize,
-        allowedExtensions,
-        hasVisionCapability,
-        selectedModel,
-        customValidator: validateFile,
-      });
+      // Show progress for files >1MB
+      const shouldShowProgress = allFiles.some(f => f.size > 1024 * 1024);
+
+      // Use shared validation utility with progress callback
+      const { validFiles, errors } = await processFilesUtil(
+        allFiles,
+        {
+          maxFileSize,
+          allowedExtensions,
+          hasVisionCapability,
+          selectedModel,
+          customValidator: validateFile,
+        },
+        shouldShowProgress
+          ? (current, total, fileName) => {
+              setUploadProgress({ current, total, fileName });
+            }
+          : undefined
+      );
+
+      // Clear progress after completion
+      setUploadProgress(null);
 
       // Send processed files and errors back to parent
       if (validFiles.length > 0 || errors.length > 0) {
@@ -230,6 +249,30 @@ export function FileUpload({
       onDrop={handleDrop}
     >
       {children}
+
+      {/* Upload progress overlay */}
+      {uploadProgress && (
+        <div className="absolute inset-0 z-[9999] pointer-events-none">
+          <div className="absolute inset-0 bg-black/20 dark:bg-black/40 flex items-center justify-center">
+            <div className="bg-white dark:bg-neutral-900 rounded-lg p-6 shadow-xl border border-neutral-200 dark:border-neutral-700 max-w-sm mx-4">
+              <p className="text-sm text-neutral-700 dark:text-neutral-300 mb-2">
+                Processing files... ({uploadProgress.current} / {uploadProgress.total})
+              </p>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
+                {uploadProgress.fileName}
+              </p>
+              <div className="mt-3 h-2 bg-neutral-200 dark:bg-neutral-700 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-blue-500 transition-all duration-300"
+                  style={{
+                    width: `${(uploadProgress.current / uploadProgress.total) * 100}%`,
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Drop zone overlay */}
       {isDragging && (

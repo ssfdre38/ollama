@@ -95,23 +95,37 @@ export function validateFile(
   return { valid: true };
 }
 
-// Helper function to read file as Uint8Array
-export function readFileAsBytes(file: File): Promise<Uint8Array> {
+// Helper function to read file as Uint8Array with progress callback
+export function readFileAsBytes(
+  file: File,
+  onProgress?: (percent: number) => void
+): Promise<Uint8Array> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
+    
+    reader.onprogress = (e) => {
+      if (e.lengthComputable && onProgress) {
+        const percent = Math.round((e.loaded / e.total) * 100);
+        onProgress(percent);
+      }
+    };
+    
     reader.onload = () => {
       const arrayBuffer = reader.result as ArrayBuffer;
+      if (onProgress) onProgress(100);
       resolve(new Uint8Array(arrayBuffer));
     };
+    
     reader.onerror = () => reject(reader.error);
     reader.readAsArrayBuffer(file);
   });
 }
 
-// Process multiple files with validation
+// Process multiple files with validation and progress
 export async function processFiles(
   files: File[],
   options: FileValidationOptions = {},
+  onProgress?: (current: number, total: number, currentFileName: string) => void
 ): Promise<{
   validFiles: Array<{ filename: string; data: Uint8Array; type?: string }>;
   errors: Array<{ filename: string; error: string }>;
@@ -123,7 +137,8 @@ export async function processFiles(
   }> = [];
   const errors: Array<{ filename: string; error: string }> = [];
 
-  for (const file of files) {
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
     const validation = validateFile(file, options);
 
     if (!validation.valid) {
@@ -135,6 +150,10 @@ export async function processFiles(
     }
 
     try {
+      if (onProgress) {
+        onProgress(i + 1, files.length, file.name);
+      }
+      
       const fileBytes = await readFileAsBytes(file);
       validFiles.push({
         filename: file.name,

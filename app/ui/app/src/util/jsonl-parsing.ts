@@ -16,6 +16,8 @@ export async function* parseJsonlFromStream<T>(
             yield JSON.parse(buffer.trim());
           } catch (error) {
             console.error(`Failed to parse final buffer: ${buffer}`, error);
+            // Throw error instead of silently dropping
+            throw new Error(`Invalid JSON in final buffer: ${error instanceof Error ? error.message : 'Unknown error'}`);
           }
         }
         break;
@@ -35,6 +37,8 @@ export async function* parseJsonlFromStream<T>(
             yield JSON.parse(trimmed);
           } catch (error) {
             console.error(`Failed to parse line: ${trimmed}`, error);
+            // Throw error to surface malformed JSON instead of silently dropping
+            throw new Error(`Invalid JSONL: ${error instanceof Error ? error.message : 'Unknown error'}`);
           }
         }
       }
