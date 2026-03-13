@@ -685,9 +685,14 @@ export const useSendMessage = (chatId: string) => {
               return newMap;
             });
 
-            // Flush current batcher and create new one for the new chat ID
+            // CRITICAL: Flush and cleanup old batcher BEFORE continuing
+            // This ensures no pending batches target the wrong chat
             batcher.flushBatch();
             batcher.cleanup();
+            
+            // Wait for flush to complete (batches are async)
+            await new Promise(resolve => setTimeout(resolve, 10));
+            
             currentChatId = newId;
             batcher = createQueryBatcher<{ chat: Chat }>(
               queryClient,

@@ -306,7 +306,7 @@ export const useMessageAutoscroll = ({
       resizeObserver.disconnect();
       mutationObserver.disconnect();
     };
-  }, [messages, updateSpacerHeight]);
+  }, [updateSpacerHeight]); // Changed: Only depend on updateSpacerHeight, not messages
 
   // Track scroll position
   useEffect(() => {

@@ -4,6 +4,7 @@ import Chat from "@/components/Chat";
 import { getChat } from "@/api";
 import { SidebarLayout } from "@/components/layout/layout";
 import { ChatSidebar } from "@/components/ChatSidebar";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 export const Route = createFileRoute("/c/$chatId")({
   component: RouteComponent,
@@ -33,7 +34,9 @@ function RouteComponent() {
   if (chatId === "new") {
     return (
       <SidebarLayout sidebar={<ChatSidebar currentChatId={chatId} />}>
-        <Chat chatId={chatId} />
+        <ErrorBoundary>
+          <Chat chatId={chatId} />
+        </ErrorBoundary>
       </SidebarLayout>
     );
   }
@@ -50,7 +53,20 @@ function RouteComponent() {
   if (chatError) {
     return (
       <SidebarLayout sidebar={<ChatSidebar currentChatId={chatId} />}>
-        <div className="p-4 text-red-500">Error loading chat</div>
+        <div className="p-4">
+          <div className="max-w-md bg-red-50 border border-red-200 rounded-lg p-4">
+            <h3 className="font-semibold text-red-900 mb-2">Error loading chat</h3>
+            <p className="text-red-700 text-sm mb-3">
+              {chatError instanceof Error ? chatError.message : "Failed to load chat"}
+            </p>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-3 py-1.5 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
       </SidebarLayout>
     );
   }
@@ -65,7 +81,9 @@ function RouteComponent() {
 
   return (
     <SidebarLayout sidebar={<ChatSidebar currentChatId={chatId} />}>
-      <Chat chatId={chatId} />
+      <ErrorBoundary>
+        <Chat chatId={chatId} />
+      </ErrorBoundary>
     </SidebarLayout>
   );
 }

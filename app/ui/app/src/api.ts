@@ -32,6 +32,22 @@ export interface CloudStatusResponse {
   disabled: boolean;
   source: CloudStatusSource;
 }
+
+// Helper function to create fetch with timeout
+function fetchWithTimeout(
+  url: string,
+  options: RequestInit = {},
+  timeoutMs: number = 30000
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  return fetch(url, {
+    ...options,
+    signal: controller.signal,
+  }).finally(() => clearTimeout(timeout));
+}
+
 // Helper function to convert Uint8Array to base64
 function uint8ArrayToBase64(uint8Array: Uint8Array): string {
   const chunkSize = 0x8000; // 32KB chunks to avoid stack overflow
@@ -46,7 +62,7 @@ function uint8ArrayToBase64(uint8Array: Uint8Array): string {
 }
 
 export async function fetchUser(): Promise<User | null> {
-  const response = await fetch(`${API_BASE}/api/me`, {
+  const response = await fetchWithTimeout(`${API_BASE}/api/me`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -71,7 +87,7 @@ export async function fetchUser(): Promise<User | null> {
 }
 
 export async function fetchConnectUrl(): Promise<string> {
-  const response = await fetch(`${API_BASE}/api/me`, {
+  const response = await fetchWithTimeout(`${API_BASE}/api/me`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -89,7 +105,7 @@ export async function fetchConnectUrl(): Promise<string> {
 }
 
 export async function disconnectUser(): Promise<void> {
-  const response = await fetch(`${API_BASE}/api/signout`, {
+  const response = await fetchWithTimeout(`${API_BASE}/api/signout`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -102,13 +118,13 @@ export async function disconnectUser(): Promise<void> {
 }
 
 export async function getChats(): Promise<ChatsResponse> {
-  const response = await fetch(`${API_BASE}/api/v1/chats`);
+  const response = await fetchWithTimeout(`${API_BASE}/api/v1/chats`);
   const data = await response.json();
   return new ChatsResponse(data);
 }
 
 export async function getChat(chatId: string): Promise<ChatResponse> {
-  const response = await fetch(`${API_BASE}/api/v1/chat/${chatId}`);
+  const response = await fetchWithTimeout(`${API_BASE}/api/v1/chat/${chatId}`);
   const data = await response.json();
   return new ChatResponse(data);
 }
@@ -260,7 +276,7 @@ export async function* sendMessage(
 export async function getSettings(): Promise<{
   settings: Settings;
 }> {
-  const response = await fetch(`${API_BASE}/api/v1/settings`);
+  const response = await fetchWithTimeout(`${API_BASE}/api/v1/settings`);
   if (!response.ok) {
     throw new Error("Failed to fetch settings");
   }
@@ -273,7 +289,7 @@ export async function getSettings(): Promise<{
 export async function updateSettings(settings: Settings): Promise<{
   settings: Settings;
 }> {
-  const response = await fetch(`${API_BASE}/api/v1/settings`, {
+  const response = await fetchWithTimeout(`${API_BASE}/api/v1/settings`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -293,7 +309,7 @@ export async function updateSettings(settings: Settings): Promise<{
 export async function updateCloudSetting(
   enabled: boolean,
 ): Promise<CloudStatusResponse> {
-  const response = await fetch(`${API_BASE}/api/v1/cloud`, {
+  const response = await fetchWithTimeout(`${API_BASE}/api/v1/cloud`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -313,7 +329,7 @@ export async function updateCloudSetting(
 }
 
 export async function renameChat(chatId: string, title: string): Promise<void> {
-  const response = await fetch(`${API_BASE}/api/v1/chat/${chatId}/rename`, {
+  const response = await fetchWithTimeout(`${API_BASE}/api/v1/chat/${chatId}/rename`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
@@ -327,7 +343,7 @@ export async function renameChat(chatId: string, title: string): Promise<void> {
 }
 
 export async function deleteChat(chatId: string): Promise<void> {
-  const response = await fetch(`${API_BASE}/api/v1/chat/${chatId}`, {
+  const response = await fetchWithTimeout(`${API_BASE}/api/v1/chat/${chatId}`, {
     method: "DELETE",
   });
   if (!response.ok) {
@@ -341,7 +357,7 @@ export async function getModelUpstreamInfo(
   model: Model,
 ): Promise<{ digest?: string; pushTime: number; error?: string }> {
   try {
-    const response = await fetch(`${API_BASE}/api/v1/model/upstream`, {
+    const response = await fetchWithTimeout(`${API_BASE}/api/v1/model/upstream`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -407,7 +423,7 @@ export async function* pullModel(
 }
 
 export async function getInferenceCompute(): Promise<InferenceComputeResponse> {
-  const response = await fetch(`${API_BASE}/api/v1/inference-compute`);
+  const response = await fetchWithTimeout(`${API_BASE}/api/v1/inference-compute`);
   if (!response.ok) {
     throw new Error(
       `Failed to fetch inference compute: ${response.statusText}`,
@@ -421,12 +437,13 @@ export async function getInferenceCompute(): Promise<InferenceComputeResponse> {
 export async function fetchHealth(): Promise<boolean> {
   try {
     // Use the /api/version endpoint as a health check
-    const response = await fetch(`${API_BASE}/api/version`, {
+    // Use a shorter timeout for health checks (5s)
+    const response = await fetchWithTimeout(`${API_BASE}/api/version`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
       },
-    });
+    }, 5000);
 
     if (response.ok) {
       const data = await response.json();
@@ -442,7 +459,7 @@ export async function fetchHealth(): Promise<boolean> {
 }
 
 export async function getCloudStatus(): Promise<CloudStatusResponse | null> {
-  const response = await fetch(`${API_BASE}/api/v1/cloud`);
+  const response = await fetchWithTimeout(`${API_BASE}/api/v1/cloud`);
   if (!response.ok) {
     throw new Error(`Failed to fetch cloud status: ${response.status}`);
   }
