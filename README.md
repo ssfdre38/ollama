@@ -24,26 +24,53 @@ The official Ollama is excellent but has stability issues affecting production d
 | **Memory Leaks** | ❌ Yes (download manager) | ✅ No (TTL cleanup) |
 | **Silent Crashes** | ❌ Yes (panics) | ✅ No (recovery) |
 
-## 📦 Quick Start
+## 📦 Installation
 
-### Windows
+### Automated Installation (Recommended)
+
+**Windows (PowerShell):**
+```powershell
+irm https://raw.githubusercontent.com/ssfdre38/ollama/community-edition/install.ps1 | iex
+```
+
+**Linux/macOS (Bash):**
+```bash
+curl -fsSL https://raw.githubusercontent.com/ssfdre38/ollama/community-edition/install.sh | bash
+```
+
+The installer will:
+- ✅ Verify prerequisites (Git, Go 1.22+)
+- ✅ Clone the repository to `~/.ollama-ce`
+- ✅ Build from source
+- ✅ Provide instructions for running and using Ollama CE
+
+### Manual Installation
+
+#### Windows
 
 ```powershell
-# Download binary
-curl -o ollama.exe https://github.com/ssfdre38/ollama/releases/latest/download/ollama-windows-amd64.exe
+# Clone the repository
+git clone --depth 1 --branch community-edition https://github.com/ssfdre38/ollama.git
+cd ollama
+
+# Build from source
+go generate ./...
+go build .
 
 # Run server
 .\ollama.exe serve
 ```
 
-### Linux
+#### Linux/macOS
 
 ```bash
-# Build from source
-git clone https://github.com/ssfdre38/ollama.git
+# Clone the repository
+git clone --depth 1 --branch community-edition https://github.com/ssfdre38/ollama.git
 cd ollama
-git checkout community-edition
-go build -o ollama ./cmd/ollama
+
+# Build from source
+go generate ./...
+go build .
 
 # Run server
 ./ollama serve
@@ -59,7 +86,11 @@ docker pull ssfdre38/ollama:ce
 docker run -d -v ollama:/root/.ollama -p 11434:11434 ssfdre38/ollama:ce
 ```
 
-## 🔧 What's Fixed
+## 🚀 Quick Start
+
+## 🚀 Using Ollama CE
+
+Once installed and running, pull and run models:
 
 ### Threading & Concurrency (7 Fixes)
 
