@@ -1,0 +1,252 @@
+name: Build and Release Ollama CE
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Binaries
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            arch: amd64
+          - os: macos-13  # Intel
+            platform: darwin
+            arch: amd64
+          - os: macos-14  # Apple Silicon
+            platform: darwin
+            arch: arm64
+          - os: windows-latest
+            platform: windows
+            arch: amd64
+    
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+      
+      - name: Extract version
+        id: get_version
+        shell: bash
+        run: |
+          VERSION=$(grep 'Version string =' version/version.go | sed 's/.*"\(.*\)".*/\1/')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Building version: $VERSION"
+      
+      - name: Generate and build (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          go generate ./...
+          go build -trimpath -ldflags "-s -w -X=github.com/ollama/ollama/version.Version=${{ steps.get_version.outputs.version }} -X=github.com/ollama/ollama/server.mode=release" -o dist/ollama .
+      
+      - name: Build Desktop App (macOS only)
+        if: runner.os == 'macOS'
+        run: |
+          go build -trimpath -ldflags "-s -w -X=github.com/ollama/ollama/app/version.Version=${{ steps.get_version.outputs.version }}" -o dist/Ollama-app ./app/cmd/app/
+      
+      - name: Build Web UI (All platforms)
+        run: |
+          cd app/ui/app
+          npm install
+          npm run build
+          cd ../../..
+      
+      - name: Generate and build CLI (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          go generate ./...
+          go build -trimpath -ldflags "-s -w -X=github.com/ollama/ollama/version.Version=${{ steps.get_version.outputs.version }} -X=github.com/ollama/ollama/server.mode=release" -o dist/ollama.exe .
+      
+      - name: Build Desktop App (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          go build -trimpath -ldflags "-s -w -H windowsgui -X=github.com/ollama/ollama/app/version.Version=${{ steps.get_version.outputs.version }}" -o dist/Ollama-app.exe ./app/cmd/app/
+      
+      - name: Create ZIP archive (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          mkdir -p dist/package
+          cp dist/ollama dist/package/
+          if [ -f dist/Ollama-app ]; then cp dist/Ollama-app dist/package/; fi
+          cp -r app/ui/app/dist dist/package/web-ui
+          cp README.md LICENSE dist/package/
+          cat > dist/package/INSTALL.txt << 'EOF'
+          Ollama Community Edition ${{ steps.get_version.outputs.version }}
+          ===================================
+          
+          This package includes:
+          - ollama          CLI and server
+          - Ollama-app      Desktop application (macOS only)
+          - web-ui/         Web interface files
+          
+          OPTION 1 - Desktop App (macOS only):
+            ./Ollama-app
+          
+          OPTION 2 - Web UI:
+            Terminal 1: ./ollama serve
+            Terminal 2: cd web-ui && python3 -m http.server 8080
+            Browser: http://localhost:8080
+          
+          OPTION 3 - CLI:
+            Terminal 1: ./ollama serve
+            Terminal 2: ./ollama run llama3.2
+          
+          For more information:
+            https://github.com/ssfdre38/ollama/tree/community-edition
+          EOF
+          cd dist/package
+          zip -r ../ollama-ce-${{ steps.get_version.outputs.version }}-${{ matrix.platform }}-${{ matrix.arch }}.zip *
+      
+      - name: Create ZIP archive (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          New-Item -ItemType Directory -Path dist/package -Force | Out-Null
+          Copy-Item dist/ollama.exe dist/package/
+          Copy-Item dist/Ollama-app.exe dist/package/
+          Copy-Item -Recurse app/ui/app/dist dist/package/web-ui
+          Copy-Item README.md dist/package/
+          Copy-Item LICENSE dist/package/
+          @"
+          Ollama Community Edition ${{ steps.get_version.outputs.version }}
+          ===================================
+          
+          This package includes THREE ways to use Ollama CE:
+          
+          1. DESKTOP APP (Recommended):
+             Run: Ollama-app.exe
+             - Beautiful desktop interface
+             - System tray integration
+             - No browser needed
+          
+          2. WEB UI (Browser-based):
+             Terminal 1: ollama.exe serve
+             Terminal 2: cd web-ui && python -m http.server 8080
+             Browser: http://localhost:8080
+          
+          3. CLI (Command-line):
+             Terminal 1: ollama.exe serve
+             Terminal 2: ollama.exe run llama3.2
+          
+          Choose the interface that works best for you!
+          
+          For more information:
+            https://openclawce.com/ollama-ce
+            https://github.com/ssfdre38/ollama/tree/community-edition
+          "@ | Out-File -FilePath dist/package/INSTALL.txt
+          Compress-Archive -Path dist/package/* -DestinationPath dist/ollama-ce-${{ steps.get_version.outputs.version }}-${{ matrix.platform }}-${{ matrix.arch }}.zip
+      
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ollama-ce-${{ matrix.platform }}-${{ matrix.arch }}
+          path: dist/*.zip
+  
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Extract version
+        id: get_version
+        run: |
+          VERSION=$(grep 'Version string =' version/version.go | sed 's/.*"\(.*\)".*/\1/')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+      
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: ollama-ce-*
+          merge-multiple: true
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: dist/*.zip
+          body: |
+            # Ollama Community Edition ${{ steps.get_version.outputs.version }}
+            
+            ## What's New
+            
+            Ollama CE includes 20+ bug fixes from the upstream Ollama project:
+            - **18 server bugs fixed** (auth, caching, concurrency, manifest handling)
+            - **Desktop UI included** (35+ UI bugs fixed)
+            - **OpenClaw integration optimized** (tool calling fixes, streaming improvements)
+            
+            ## Installation
+            
+            ### Pre-built Binaries
+            
+            Download the appropriate binary for your platform:
+            - **Windows**: `ollama-ce-${{ steps.get_version.outputs.version }}-windows-amd64.zip`
+            - **Linux**: `ollama-ce-${{ steps.get_version.outputs.version }}-linux-amd64.zip`
+            - **macOS Intel**: `ollama-ce-${{ steps.get_version.outputs.version }}-darwin-amd64.zip`
+            - **macOS Apple Silicon**: `ollama-ce-${{ steps.get_version.outputs.version }}-darwin-arm64.zip`
+            
+            Extract the archive and move the `ollama` executable to your PATH.
+            
+            ### Quick Start
+            
+            ```bash
+            # Start the server
+            ollama serve
+            
+            # In another terminal, run a model
+            ollama run llama3.2
+            ```
+            
+            ### From Source
+            
+            ```bash
+            # Windows
+            irm https://raw.githubusercontent.com/ssfdre38/ollama/community-edition/install.ps1 | iex
+            
+            # Linux/macOS
+            curl -fsSL https://raw.githubusercontent.com/ssfdre38/ollama/community-edition/install.sh | bash
+            ```
+            
+            ## What's Fixed
+            
+            **Server Bugs (18 fixes):**
+            - Authentication race condition with concurrent requests
+            - Model cache invalidation on pull/create operations
+            - Manifest caching causing stale model info
+            - Concurrent request handling and locking
+            - And 14+ more stability improvements
+            
+            **Desktop UI (35+ bug fixes):**
+            - Complete desktop application with fixed UI bugs
+            - Cross-platform support (Windows, macOS, Linux)
+            
+            **OpenClaw Integration:**
+            - Tool calling schema fixes for Ollama's Go unmarshaler
+            - Better error handling and streaming support
+            
+            ## Links
+            
+            - [Website](https://openclawce.com/ollama-ce)
+            - [GitHub Repository](https://github.com/ssfdre38/ollama/tree/community-edition)
+            - [Bug Fixes Documentation](https://github.com/ssfdre38/ollama/blob/community-edition/ISSUES_TO_FIX.md)
+            
+            ---
+            
+            Built on [Ollama](https://ollama.com/) — the official local AI runtime
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
