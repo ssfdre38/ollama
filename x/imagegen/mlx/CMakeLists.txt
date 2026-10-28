@@ -81,11 +81,20 @@ endif()
 
 # Pre-declare mlx so our pinned version takes precedence over the one
 # hardcoded in mlx-c's CMakeLists.txt (first FetchContent_Declare wins).
-FetchContent_Declare(
-    mlx
-    GIT_REPOSITORY "https://github.com/ml-explore/mlx.git"
-    GIT_TAG ${MLX_GIT_TAG}
-)
+if(WIN32)
+    FetchContent_Declare(
+        mlx
+        GIT_REPOSITORY "https://github.com/ml-explore/mlx.git"
+        GIT_TAG ${MLX_GIT_TAG}
+        PATCH_COMMAND git checkout -- . && git apply --ignore-whitespace "${CMAKE_SOURCE_DIR}/mlx-windows.patch"
+    )
+else()
+    FetchContent_Declare(
+        mlx
+        GIT_REPOSITORY "https://github.com/ml-explore/mlx.git"
+        GIT_TAG ${MLX_GIT_TAG}
+    )
+endif()
 
 FetchContent_Declare(
     mlx-c

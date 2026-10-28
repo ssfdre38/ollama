@@ -246,6 +246,24 @@ if(MLX_ENGINE)
         )
     endif()
 
+    if(WIN32)
+        # Ensure libmlx is installed under COMPONENT MLX
+        install(FILES $<TARGET_FILE:mlx>
+            DESTINATION ${OLLAMA_INSTALL_DIR}
+            COMPONENT MLX)
+
+        # Install compiler runtime DLLs (libc++, libunwind) for Clang/MinGW toolchain
+        if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+            get_filename_component(_comp_dir ${CMAKE_CXX_COMPILER} DIRECTORY)
+            file(GLOB _runtime_dlls "${_comp_dir}/libc++*.dll" "${_comp_dir}/libunwind*.dll")
+            if(_runtime_dlls)
+                install(FILES ${_runtime_dlls}
+                    DESTINATION ${OLLAMA_INSTALL_DIR}
+                    COMPONENT MLX)
+            endif()
+        endif()
+    endif()
+
     # Install the Metal library for macOS arm64 (must be colocated with the binary)
     # Metal backend is only built for arm64, not x86_64
     if(APPLE AND CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
@@ -347,9 +365,11 @@ if(MLX_ENGINE)
     # dlfcn-win32 is a known CMake target with its own install rules (which install
     # to the wrong destination). We must install it explicitly here.
     if(WIN32)
-        install(FILES ${OLLAMA_BUILD_DIR}/dl.dll
-            DESTINATION ${OLLAMA_INSTALL_DIR}
-            COMPONENT MLX)
+        if(EXISTS ${OLLAMA_BUILD_DIR}/dl.dll)
+            install(FILES ${OLLAMA_BUILD_DIR}/dl.dll
+                DESTINATION ${OLLAMA_INSTALL_DIR}
+                COMPONENT MLX)
+        endif()
     endif()
 
     # Manually install CUDA runtime libraries that MLX loads via dlopen

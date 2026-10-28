@@ -4,7 +4,27 @@
 
 #ifdef _WIN32
 #include <windows.h>
-#define DLOPEN(path) LoadLibraryA(path)
+static HMODULE win32_dlopen(const char* path) {
+    if (!path) return NULL;
+    char dir_path[MAX_PATH];
+    strncpy(dir_path, path, MAX_PATH - 1);
+    dir_path[MAX_PATH - 1] = '\0';
+    char* last_slash = strrchr(dir_path, '\\');
+    if (!last_slash) last_slash = strrchr(dir_path, '/');
+    if (last_slash) {
+        *last_slash = '\0';
+        SetDllDirectoryA(dir_path);
+    }
+    HMODULE h = LoadLibraryExA(path, NULL, LOAD_WITH_ALTERED_SEARCH_PATH);
+    if (!h) {
+        h = LoadLibraryA(path);
+    }
+    if (last_slash) {
+        SetDllDirectoryA(NULL);
+    }
+    return h;
+}
+#define DLOPEN(path) win32_dlopen(path)
 #define DLCLOSE(handle) FreeLibrary((HMODULE)(handle))
 #else
 #ifdef __APPLE__

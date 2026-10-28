@@ -8,6 +8,7 @@
 # is not promoted to a terminating exception by the try/catch block.
 # All native commands already check $LASTEXITCODE explicitly.
 $ErrorActionPreference = "Continue"
+$env:CMAKE_TLS_VERIFY = "0"
 
 mkdir -Force -path .\dist | Out-Null
 
@@ -256,9 +257,8 @@ function vulkan {
     }
 }
 
-function mlxCuda13 {
+function mlxCuda($cudaMajorVer) {
     mkdir -Force -path "${script:DIST_DIR}\" | Out-Null
-    $cudaMajorVer="13"
     if ($script:ARCH -ne "arm64") {
         if ("$script:CUDA_DIRS".Contains("v$cudaMajorVer")) {
             foreach ($d in $Script:CUDA_DIRS){
@@ -302,7 +302,7 @@ function mlxCuda13 {
 
             Write-Output "Building MLX CUDA v$cudaMajorVer backend libraries $cuda"
             $env:CUDAToolkit_ROOT=$cuda
-            & cmake -B build\mlx_cuda_v$cudaMajorVer --preset "MLX CUDA $cudaMajorVer" -T cuda="$cuda" --install-prefix "$script:DIST_DIR"
+            & cmake -B build\mlx_cuda_v$cudaMajorVer --preset "MLX CUDA $cudaMajorVer" -T cuda="$cuda" --install-prefix "$script:DIST_DIR" -DCMAKE_TLS_VERIFY=0
             if ($LASTEXITCODE -ne 0) { exit($LASTEXITCODE)}
             & cmake --build build\mlx_cuda_v$cudaMajorVer --target mlx --target mlxc --config Release --parallel $script:JOBS -- /nodeReuse:false
             if ($LASTEXITCODE -ne 0) { exit($LASTEXITCODE)}
@@ -312,6 +312,20 @@ function mlxCuda13 {
             Write-Output "CUDA v$cudaMajorVer not detected, skipping MLX build"
         }
     }
+}
+
+function mlxCuda12 { mlxCuda "12" }
+function mlxCuda13 { mlxCuda "13" }
+
+function mlxCpu {
+    mkdir -Force -path "${script:DIST_DIR}\" | Out-Null
+    Write-Output "Building MLX CPU backend libraries"
+    & cmake -B build\mlx --preset "MLX" --install-prefix "$script:DIST_DIR" -DCMAKE_TLS_VERIFY=0
+    if ($LASTEXITCODE -ne 0) { exit($LASTEXITCODE)}
+    & cmake --build build\mlx --target mlx --target mlxc --config Release --parallel $script:JOBS
+    if ($LASTEXITCODE -ne 0) { exit($LASTEXITCODE)}
+    & cmake --install build\mlx --component "MLX" --strip
+    if ($LASTEXITCODE -ne 0) { exit($LASTEXITCODE)}
 }
 
 function ollama {
@@ -479,7 +493,7 @@ function zip {
             }
 
             # Stage MLX into its own directory for independent compression
-            if (stageComponents $amd64Dir "${distDir}\windows-amd64-mlx" "mlx_*" "MLX") {
+            if (stageComponents $amd64Dir "${distDir}\windows-amd64-mlx" "mlx*" "MLX") {
                 Write-Output "Generating ${distDir}\ollama-windows-amd64-mlx.zip"
                 $jobs += newZipJob "${distDir}\windows-amd64-mlx" "${distDir}\ollama-windows-amd64-mlx.zip"
             }
@@ -528,6 +542,8 @@ try {
         cuda13
         rocm6
         vulkan
+        mlxCpu
+        mlxCuda12
         mlxCuda13
         ollama
         app
